@@ -76,6 +76,24 @@ impl NetworkNode {
         }
     }
 
+    pub async fn connect(&self, to: &str) -> Result<(), std::io::Error> {
+        let stream = TcpStream::connect(to).await?;
+
+        println!("connected to {:?}", stream);
+
+        let mut nn = self.clone();
+
+        tokio::spawn(async move {
+            if let Err(e) = nn.handle_peer(stream).await {
+                eprintln!("{:?}", e);
+            }
+
+            println!("returned...");
+        });
+
+        Ok(())
+    }
+
     pub async fn broadcast(&self) {
         for peer in self.peers.lock().await.iter_mut() {
             peer.send("hello".to_owned());

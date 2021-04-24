@@ -46,6 +46,11 @@ impl Node {
         self.network.run().await
     }
 
+    pub async fn bootstrap(&self, bootstrap_node: &str) -> Result<(), std::io::Error> {
+        self.network.connect(bootstrap_node).await?;
+        Ok(())
+    }
+
     pub fn perform_transaction(&self, amount: usize, receiver: falcon512::PublicKey) {
         let outs = self.wallet.find_outputs_for_amount(amount);
         let tx = Transaction::new(amount, receiver);
@@ -94,8 +99,16 @@ pub struct Minter {}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let nn = NetworkNode::new("127.0.0.1:9000");
+    let mut args = std::env::args().into_iter().skip(1);
+    let arg1 = args.next();
+    let arg2 = args.next();
+
+    let nn = NetworkNode::new(&arg1.unwrap());
     let mut node = Node::new(nn);
+
+    if let Some(peer_addr) = arg2 {
+        node.bootstrap(&peer_addr).await?;
+    }
 
     node.run().await?;
 
