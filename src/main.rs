@@ -10,29 +10,41 @@ use std::error::Error;
 
 use pqcrypto::sign::falcon512;
 
+use block::Block;
+use blockchain::Blockchain;
 use network::NetworkNode;
 use transaction::Transaction;
 
 pub struct Node {
+    blockchain: Blockchain,
     wallet: Wallet,
+
+    /// Keeps track of blocks which can not yet be added onto the blockchain.
+    blocks: Vec<Block>,
+
+    network: NetworkNode,
     minter: Option<Minter>,
-    //network: NetworkNode,
 }
 
 impl Node {
-    pub fn new() -> Self {
+    pub fn new(nn: NetworkNode) -> Self {
         let (pk, sk) = falcon512::keypair();
         Self {
+            blockchain: Blockchain::new(),
             wallet: Wallet {
                 keypairs: vec![(pk, sk)],
                 funds: vec![0],
                 unspent_outputs: Vec::new(),
             },
+            blocks: Vec::new(),
+            network: nn,
             minter: None,
         }
     }
 
-    pub async fn run() {}
+    pub async fn run(&mut self) -> Result<(), std::io::Error> {
+        self.network.run().await
+    }
 
     pub fn perform_transaction(&self, amount: usize, receiver: falcon512::PublicKey) {
         let outs = self.wallet.find_outputs_for_amount(amount);
@@ -82,9 +94,10 @@ pub struct Minter {}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let node = Node::new();
+    let nn = NetworkNode::new("127.0.0.1:9000");
+    let mut node = Node::new(nn);
 
-    NetworkNode::run().await?;
+    node.run().await?;
 
     Ok(())
 }
