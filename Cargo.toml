@@ -1,0 +1,10 @@
+[package]
+name = "blockchain"
+version = "0.1.0"
+authors = ["Quentin Kniep <hello@quentinkniep.com>"]
+edition = "2018"
+
+[dependencies]
+blake3 = "0.3"
+pqcrypto = { version = "0.13", default-features = false, features = ["pqcrypto-falcon"] }
+tokio = { version = "1", features = ["full"] }
