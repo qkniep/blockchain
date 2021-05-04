@@ -1,13 +1,11 @@
 // Copyright (C) 2021 Quentin Kniep <hello@quentinkniep.com>
 // Distributed under terms of the MIT license.
 
-use std::fmt::{self, Debug};
-
-use pqcrypto::sign::*;
+use ed25519_dalek::{PublicKey, Signature};
 
 #[derive(Clone, Debug)]
 pub struct Transaction {
-    id: usize,
+    id: u64,
     inputs: Vec<TxIn>,
     outputs: Vec<TxOut>,
 }
@@ -15,7 +13,9 @@ pub struct Transaction {
 impl Transaction {
     // TODO generate ID
     // TODO take inputs, calculate their total, calculate correct change
-    pub fn new(amount: usize, to: falcon512::PublicKey) -> Self {
+    // TODO sign transaction?
+    pub fn new(amount: u64, from: PublicKey, to: PublicKey) -> Self {
+        //let input = TxIn { address: from };
         let spending = TxOut {
             address: to,
             amount,
@@ -26,53 +26,41 @@ impl Transaction {
         };
         Self {
             id: 0,
-            inputs: Vec::new(),
+            inputs: vec![/*input*/],
             outputs: vec![spending, change],
         }
     }
 
+    /// Checks whether the transaction, including all signatures, is valid.
     pub fn validate(&self) -> bool {
+        for input in &self.inputs {
+            if !input.address.verify_strict(b"", &input.signature).is_err() {
+                return false;
+            }
+        }
         self.total_input_amount() >= self.total_output_amount()
     }
 
     // TODO calculate
-    fn total_input_amount(&self) -> usize {
+    fn total_input_amount(&self) -> u64 {
         0
     }
 
-    fn total_output_amount(&self) -> usize {
+    fn total_output_amount(&self) -> u64 {
         self.outputs.iter().map(|o| o.amount).sum()
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct TxIn {
-    tx_out_id: usize,
-    tx_out_block: usize,
-    signature: falcon512::DetachedSignature,
+    address: PublicKey,
+    signature: Signature,
 }
 
-impl Debug for TxIn {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TxIn")
-            .field("tx_out_id", &self.tx_out_id)
-            .field("tx_out_block", &self.tx_out_block)
-            .finish()
-    }
-}
-
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct TxOut {
-    address: falcon512::PublicKey,
-    amount: usize,
-}
-
-impl Debug for TxOut {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TxOut")
-            .field("amount", &self.amount)
-            .finish()
-    }
+    address: PublicKey,
+    amount: u64,
 }
 
 #[cfg(test)]

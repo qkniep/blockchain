@@ -6,5 +6,7 @@ edition = "2018"
 
 [dependencies]
 blake3 = "0.3"
+ed25519-dalek = "1"
 pqcrypto = { version = "0.13", default-features = false, features = ["pqcrypto-falcon"] }
+rand = "0.7"
 tokio = { version = "1", features = ["full"] }
