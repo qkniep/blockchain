@@ -10,7 +10,6 @@ use crate::transaction::Transaction;
 
 const PROTOCOL_VERSION: u32 = 1;
 const BLOCK_GENERATION_INTERVAL: Duration = Duration::from_secs(10);
-const INITIAL_DIFFICULTY: usize = 200;
 
 ///
 #[derive(Clone, Debug)]
@@ -20,7 +19,6 @@ pub struct Block {
     timestamp: usize,
     prev_hash: Hash,
     transactions: Vec<Transaction>,
-    difficulty: usize,
     minter: usize,
 }
 
@@ -32,7 +30,6 @@ impl Block {
             timestamp: 0,
             prev_hash: [0; blake3::OUT_LEN].into(),
             transactions: Vec::new(),
-            difficulty: INITIAL_DIFFICULTY,
             minter: 0,
         }
     }
@@ -44,35 +41,24 @@ impl Block {
             timestamp: 0,
             prev_hash: self.hash(),
             transactions: Vec::new(),
-            // TODO adjust difficulty
-            difficulty: INITIAL_DIFFICULTY,
             // TODO set minter
             minter: 0,
         }
     }
 
-    pub fn mint(txs: Vec<Transaction>, prev: &Block) -> Self {
-        let mut b = prev.next();
-        loop {
-            let hash = b.hash();
-            let mut d = b.difficulty;
-            for h in hash.as_bytes() {
-                if (d >= 256 && *h != 0) || (d < 256 && *h < d as u8) {
-                    break;
-                } else if d < 256 {
-                    return b;
-                }
-                d /= 256;
-            }
-            b.timestamp += 1;
-            sleep(Duration::from_secs(1));
-        }
-    }
-
     // TODO validate timestamp
-    // TODO validate adjusted difficulty
     pub fn validate(&self, prev: &Block) -> bool {
-        self.id == prev.id + 1 && self.prev_hash == prev.hash()
+        if !(self.id == prev.id + 1 && self.prev_hash == prev.hash()) {
+            return false;
+        }
+
+        for tx in &self.transactions {
+            if !tx.validate() {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     pub fn hash(&self) -> Hash {
@@ -92,12 +78,6 @@ impl Block {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn minting() {
-        let b1 = Block::genesis();
-        let _b2 = Block::mint(Vec::new(), &b1);
-    }
 
     #[test]
     fn validation() {

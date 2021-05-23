@@ -2,30 +2,25 @@
 // Distributed under terms of the MIT license.
 
 use ed25519_dalek::{Keypair, PublicKey, Signature, Signer};
+use rand::rngs::OsRng;
 
 /// A collection of keypairs managing the associated funds.
 pub struct Wallet {
     keypairs: Vec<Keypair>,
     funds: Vec<u64>,
-    //unspent_outputs: Vec<u64>,
 }
 
-// TODO write wallet to disk
+// TODO persist wallet to disk
 
 impl Wallet {
-    pub fn new(keypair: Keypair) -> Self {
+    pub fn new() -> Self {
+        let mut csprng = OsRng {};
+        let keypair = Keypair::generate(&mut csprng);
+
         Self {
             keypairs: vec![keypair],
             funds: vec![0],
         }
-    }
-
-    /// Find unspent outputs that can be used for spending the requested amount.
-    pub fn find_outputs_for_amount(&self, amount: u64) -> Option<Vec<u64>> {
-        if amount > self.total_funds() {
-            return None;
-        }
-        return Some(Vec::new());
     }
 
     pub fn sign_input(&self, pk: PublicKey) -> Signature {

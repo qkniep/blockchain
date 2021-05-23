@@ -10,11 +10,16 @@ mod wallet;
 
 use std::error::Error;
 
+use tracing::{info, subscriber::set_global_default};
+use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
+
 use network::NetworkNode;
 use node::Node;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    setup_logging();
+
     let mut args = std::env::args().into_iter().skip(1);
     let arg1 = args.next();
     let arg2 = args.next();
@@ -23,11 +28,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut node = Node::new(nn);
 
     if let Some(peer_addr) = arg2 {
-        println!("Bootstrapping via {}.", peer_addr);
+        info!("Bootstrapping via {}", peer_addr);
         node.bootstrap(&peer_addr).await?;
     }
 
     node.run().await?;
 
+    info!("Blockchain stopped");
+
     Ok(())
+}
+
+fn setup_logging() {
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let fmt_layer = tracing_subscriber::fmt::Layer::default();
+    let subscriber = Registry::default().with(env_filter).with(fmt_layer);
+    set_global_default(subscriber).expect("Failed to set subscriber");
 }

@@ -8,6 +8,7 @@ use rand::{thread_rng, Rng};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, Mutex};
+use tracing::info;
 
 const MAX_MESSAGE_SIZE: usize = 8 * 1024 * 1024; // 8 MB
 const MIN_PEERS: usize = 8;
@@ -37,7 +38,7 @@ impl NetworkNode {
         let listener = TcpListener::bind(self.address).await?;
 
         while let Ok((stream, _)) = listener.accept().await {
-            println!("connected to {:?}", stream);
+            info!("Connected to {:?}", stream.peer_addr().unwrap());
 
             let mut nn = self.clone();
 
@@ -45,8 +46,6 @@ impl NetworkNode {
                 if let Err(e) = nn.handle_peer(stream).await {
                     eprintln!("{:?}", e);
                 }
-
-                println!("returned...");
             });
         }
 
@@ -66,11 +65,10 @@ impl NetworkNode {
             let peer_addr = peers[peer_i].0;
             println!("sending {}", peer_addr);
             let l = peers.len();
-            drop(peers);
             self.send_to(l - 1, format!("{}", peer_addr)).await;
-        } else {
-            drop(peers);
         }
+
+        drop(peers);
 
         loop {
             // TODO send what we receive through mpsc out over socket
@@ -99,7 +97,7 @@ impl NetworkNode {
     pub async fn connect(&self, to: &str) -> Result<(), std::io::Error> {
         let stream = TcpStream::connect(to).await?;
 
-        println!("connected to {:?}", stream);
+        info!("Connected to {:?}", stream.peer_addr().unwrap());
 
         let mut nn = self.clone();
 
@@ -107,8 +105,6 @@ impl NetworkNode {
             if let Err(e) = nn.handle_peer(stream).await {
                 eprintln!("{:?}", e);
             }
-
-            println!("returned...");
         });
 
         Ok(())
@@ -130,6 +126,21 @@ impl NetworkNode {
 mod tests {
     use super::*;
 
+    macro_rules! aw {
+        ($e:expr) => {
+            tokio_test::block_on($e)
+        };
+    }
+
     #[test]
-    fn it_works() {}
+    fn basics() {
+        let _n1 = NetworkNode::new("127.0.0.1:9901");
+        let n2 = NetworkNode::new("127.0.0.1:9902");
+        let n3 = NetworkNode::new("127.0.0.1:9903");
+
+        std::thread::sleep(std::time::Duration::from_secs(3));
+
+        aw!(n2.connect("127.0.0.1:9901")).expect("n2 failed to connect");
+        aw!(n3.connect("127.0.0.1:9901")).expect("n3 failed to connect");
+    }
 }

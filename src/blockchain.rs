@@ -7,12 +7,14 @@ use crate::block::Block;
 
 pub struct Blockchain {
     pub chain: Vec<Block>,
+    last_cp: Option<Checkpoint>,
 }
 
 impl Blockchain {
     pub fn new() -> Self {
         Self {
             chain: vec![Block::genesis()],
+            last_cp: None,
         }
     }
 
@@ -31,14 +33,15 @@ impl Blockchain {
     }
 
     /// Create a checkpoint of the current blockchain state.
-    pub fn checkpoint(&self) {
+    pub fn checkpoint(&mut self) {
         let cp = Checkpoint {
-            state: self.stateHash(),
+            state: self.state_hash(),
         };
+        self.last_cp = Some(cp);
     }
 
     /// A hash that identifies the current state of the blockchain.
-    pub fn stateHash(&self) -> Hash {
+    pub fn state_hash(&self) -> Hash {
         self.chain[self.chain.len() - 1].hash()
     }
 }
