@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 fn setup_logging() {
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let fmt_layer = tracing_subscriber::fmt::Layer::default();
+    let fmt_layer = tracing_subscriber::fmt::Layer::default().with_target(false);
     let subscriber = Registry::default().with(env_filter).with(fmt_layer);
     set_global_default(subscriber).expect("Failed to set subscriber");
 }

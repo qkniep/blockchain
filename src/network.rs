@@ -8,7 +8,7 @@ use rand::{thread_rng, Rng};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, Mutex};
-use tracing::info;
+use tracing::{error, info, warn};
 
 const MAX_MESSAGE_SIZE: usize = 8 * 1024 * 1024; // 8 MB
 const MIN_PEERS: usize = 8;
@@ -35,16 +35,15 @@ impl NetworkNode {
     }
 
     pub async fn run(&mut self) -> Result<(), std::io::Error> {
+        info!("Listening to P2P connections on {}", self.address);
         let listener = TcpListener::bind(self.address).await?;
 
         while let Ok((stream, _)) = listener.accept().await {
-            info!("Connected to {:?}", stream.peer_addr().unwrap());
-
             let mut nn = self.clone();
 
             tokio::spawn(async move {
                 if let Err(e) = nn.handle_peer(stream).await {
-                    eprintln!("{:?}", e);
+                    error!("{:?}", e);
                 }
             });
         }
@@ -54,6 +53,8 @@ impl NetworkNode {
 
     /// Handles communications with a single peer node.
     pub async fn handle_peer(&mut self, mut stream: TcpStream) -> Result<(), std::io::Error> {
+        info!("Connected to peer: {:?}", stream.peer_addr().unwrap());
+
         let mut buf = Vec::with_capacity(MAX_MESSAGE_SIZE);
         let (tx, rx) = mpsc::unbounded_channel();
         let mut peers = self.peers.lock().await;
@@ -75,10 +76,13 @@ impl NetworkNode {
 
             let n = match stream.read(&mut buf).await {
                 // Socket closed
-                Ok(0) => return Ok(()),
+                Ok(0) => {
+                    warn!("Disconnected from peer: {:?}", stream.peer_addr().unwrap());
+                    return Ok(());
+                }
                 Ok(n) => n,
                 Err(e) => {
-                    eprintln!("failed to read from socket; err = {:?}", e);
+                    error!("Failed to read from socket: {:?}", e);
                     return Err(e);
                 }
             };
@@ -97,13 +101,11 @@ impl NetworkNode {
     pub async fn connect(&self, to: &str) -> Result<(), std::io::Error> {
         let stream = TcpStream::connect(to).await?;
 
-        info!("Connected to {:?}", stream.peer_addr().unwrap());
-
         let mut nn = self.clone();
 
         tokio::spawn(async move {
             if let Err(e) = nn.handle_peer(stream).await {
-                eprintln!("{:?}", e);
+                error!("{:?}", e);
             }
         });
 
